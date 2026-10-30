@@ -32,10 +32,28 @@ export const seed: DemoState = {
     { id: 'a2', time: '11:38', kind: 'approval', title: 'Maya approved checkout', detail: 'Approval APR-72B · expires 18:00' },
     { id: 'a3', time: '11:31', kind: 'plan', title: 'Plan v3 locked', detail: 'Added a slow morning · −£12 pp' },
   ],
+  groups: [
+    {
+      id: 'lake-crew', name: 'The Lake Crew', destination: 'Keswick, Lake District', dates: '14–17 Nov', member_ids: ['maya', 'alex', 'jordan', 'priya', 'sam', 'leo'], unread: 3,
+      messages: [
+        { id: 'm1', author: 'maya', kind: 'text', time: '10:04', text: 'I dropped a rough plan in. Cabin Friday, Catbells Saturday, then a slower Sunday?' },
+        { id: 'm2', author: 'alex', kind: 'text', time: '10:07', text: 'Love it. Can we keep the kayak but avoid rushing straight from the hike?' },
+        { id: 'm3', author: 'priya', kind: 'text', time: '10:09', text: 'I would rather have one proper chill morning. Happy to skip a viewpoint.' },
+        { id: 'm4', author: 'pilot', kind: 'summary', time: '10:12', text: 'You agree on the cabin, Catbells and kayaking. The open decision is pace: a packed Saturday or moving the kayak to Sunday.', meta: { decisions: ['Fell House cabin', 'Catbells walk', 'Keep kayaking'], open: 'When should the kayak happen?' } },
+        { id: 'm5', author: 'pilot', kind: 'warning', time: '10:14', text: 'The current Saturday is not feasible. Catbells ends around 14:00 and the last kayak check-in is 14:30, with a 28-minute transfer. I recommend moving kayaking to Sunday morning.' },
+      ],
+      polls: [{ id: 'poll-kayak', question: 'When should we kayak?', status: 'open', created_by: 'pilot', options: [
+        { id: 'sun', label: 'Sunday 10:00', votes: ['maya', 'priya', 'sam'] },
+        { id: 'sat', label: 'Saturday 15:30', votes: ['alex'] },
+        { id: 'drop', label: 'Drop kayaking', votes: [] },
+      ] }],
+    },
+    { id: 'lisbon-six', name: 'Lisbon Six', destination: 'Lisbon', dates: '6–10 Mar', member_ids: ['maya', 'alex', 'priya', 'sam'], unread: 0, messages: [], polls: [] },
+    { id: 'new-year', name: 'New Year Maybe', destination: 'Undecided', dates: 'Late December', member_ids: ['maya', 'jordan', 'leo'], unread: 1, messages: [], polls: [] },
+  ],
   balances,
   settlements: calculateSettlements(balances),
   mode: 'simulated-sandbox',
 }
 
 export const freshSeed = (): DemoState => structuredClone(seed)
-

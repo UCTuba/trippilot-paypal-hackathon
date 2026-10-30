@@ -2,17 +2,18 @@ import { Bell, ChevronDown, Menu, RotateCcw } from 'lucide-react'
 import type { Member } from '../lib/types'
 import { Avatar } from './Avatar'
 
-export function Topbar({ members, persona, onPersona, onReset, onMenu }: {
+export function Topbar({ members, persona, onPersona, onReset, onMenu, groupName }: {
   members: Member[]
   persona: string
   onPersona: (id: string) => void
   onReset: () => void
   onMenu: () => void
+  groupName?: string
 }) {
   return (
     <header className="topbar">
       <button className="icon-button menu-button" onClick={onMenu} aria-label="Open menu"><Menu size={20} /></button>
-      <div className="crumb"><span>Trips</span><b>/</b><strong>Lake District Reset</strong></div>
+      <div className="crumb"><span>Trip rooms</span><b>/</b><strong>{groupName ?? 'The Lake Crew'}</strong></div>
       <div className="top-actions">
         <button className="reset-button" onClick={onReset}><RotateCcw size={15} /> Reset demo</button>
         <button className="icon-button" aria-label="Notifications"><Bell size={18} /><span className="notification-dot" /></button>
@@ -27,4 +28,3 @@ export function Topbar({ members, persona, onPersona, onReset, onMenu }: {
     </header>
   )
 }
-

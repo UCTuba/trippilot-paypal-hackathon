@@ -9,6 +9,10 @@ The repository includes a polished React judging experience, a FastAPI service, 
 ## What works
 
 - **Shared trip workspace** with a responsive overview, persona switcher, itinerary and judge-friendly reset
+- **Trip rooms** where friends discuss a rough idea and grow it into a shared plan
+- **On-demand Pilot participant** invoked with `@pilot` to summarise decisions, suggest next steps or check feasibility
+- **Agent-created polls** when a request is ambiguous, with winning decisions applied back to the itinerary
+- **Typed conversation events** for human messages, summaries, suggestions, warnings and group decisions
 - **Plan versions** created from plain-language change requests, with a visible per-person cost delta and explicit accept/reject controls
 - **Group Checkout** with individual commitment caps, deadline, progress, simulated friends and final booking transition
 - **Cover a friend** as a private, confirmed agreement rather than surprise debt
@@ -109,6 +113,8 @@ render.yaml   Static web and Docker API deployment blueprint
 
 The browser uses the API when it is available and falls back to the same seeded demo locally. The backend owns state transitions and PayPal credentials. The ledger functions are pure and tested independently.
 
+Group collaboration is separated into explicit group, message and poll resources, with stable IDs and server-owned vote resolution. See [the scalability design](docs/SCALABILITY.md) for the production data, realtime and agent-job boundaries.
+
 ## API summary
 
 | Route | Purpose |
@@ -121,6 +127,9 @@ The browser uses the API when it is available and falls back to the same seeded 
 | `POST /api/cover` | Create a private cover agreement |
 | `POST /api/expenses` | Add and deterministically split an expense |
 | `POST /api/paypal/orders` | Create a PayPal sandbox authorisation Order |
+| `POST /api/groups` | Create a new trip room |
+| `POST /api/groups/{id}/messages` | Post a member message and optionally call Pilot |
+| `POST /api/groups/{id}/polls/{poll_id}/vote` | Record a vote and apply a decided option |
 
 ## Production path
 
@@ -129,4 +138,3 @@ For live commerce, TripPilot would add durable Postgres storage, verified PayPal
 ## Licence
 
 [MIT](LICENSE)
-

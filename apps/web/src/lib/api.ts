@@ -1,4 +1,4 @@
-import type { DemoState } from './types'
+import type { DemoState, TripGroup, TripPoll } from './types'
 
 const base = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -19,5 +19,7 @@ export const api = {
   cover: (lender: string, borrower: string, amount_cents: number) => request<DemoState>('/api/cover', { method: 'POST', body: JSON.stringify({ lender, borrower, amount_cents }) }),
   expense: (payload: object) => request<DemoState>('/api/expenses', { method: 'POST', body: JSON.stringify(payload) }),
   paypalOrder: () => request<{ id: string; status: string; simulated?: boolean }>('/api/paypal/orders', { method: 'POST' }),
+  createGroup: (payload: { name: string; destination: string; dates: string; created_by: string }) => request<TripGroup>('/api/groups', { method: 'POST', body: JSON.stringify(payload) }),
+  message: (groupId: string, author: string, text: string) => request<{ group: TripGroup }>(`/api/groups/${groupId}/messages`, { method: 'POST', body: JSON.stringify({ author, text }) }),
+  vote: (groupId: string, pollId: string, member_id: string, option_id: string) => request<TripPoll>(`/api/groups/${groupId}/polls/${pollId}/vote`, { method: 'POST', body: JSON.stringify({ member_id, option_id }) }),
 }
-

@@ -37,6 +37,38 @@ export type AgentEvent = {
 
 export type Transfer = { payer: string; recipient: string; cents: number }
 
+export type PollOption = { id: string; label: string; votes: string[] }
+
+export type TripPoll = {
+  id: string
+  question: string
+  status: 'open' | 'decided'
+  created_by: string
+  options: PollOption[]
+  winner_id?: string
+}
+
+export type ChatMessage = {
+  id: string
+  author: string
+  kind: 'text' | 'summary' | 'warning' | 'suggestion' | 'poll'
+  time: string
+  text: string
+  meta?: { decisions?: string[]; open?: string }
+  poll_id?: string
+}
+
+export type TripGroup = {
+  id: string
+  name: string
+  destination: string
+  dates: string
+  member_ids: string[]
+  unread: number
+  messages: ChatMessage[]
+  polls: TripPoll[]
+}
+
 export type DemoState = {
   trip: {
     id: string
@@ -65,7 +97,7 @@ export type DemoState = {
   balances: Record<string, number>
   settlements: Transfer[]
   mode: string
+  groups: TripGroup[]
 }
 
-export type View = 'overview' | 'plan' | 'checkout' | 'money' | 'activity'
-
+export type View = 'chat' | 'plan' | 'checkout' | 'money' | 'activity'

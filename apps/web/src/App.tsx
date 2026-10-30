@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  ArrowLeft, ArrowRight, Bot, CalendarDays, Check, CheckCircle2, ChevronRight,
-  CircleDollarSign, Clock3, CreditCard, FileText, Info, Lightbulb, LockKeyhole,
-  MapPin, MessageSquareText, Plus, ReceiptText, Send, ShieldCheck, Sparkles, Users, X,
+  AlertTriangle, ArrowRight, AtSign, Bot, CalendarDays, Check, CheckCheck, CheckCircle2, ChevronRight,
+  CircleDollarSign, Clock3, GripVertical, Lightbulb, LockKeyhole, MapPin, MessageCircleMore,
+  Paperclip, Plus, ReceiptText, Send, ShieldCheck, Sparkles, Users, Vote, WandSparkles, X,
 } from 'lucide-react'
 import { ActivityList } from './components/ActivityList'
 import { Avatar } from './components/Avatar'
@@ -13,10 +13,10 @@ import { Topbar } from './components/Topbar'
 import { api } from './lib/api'
 import { calculateBalances, calculateSettlements, pounds } from './lib/money'
 import { freshSeed } from './lib/seed'
-import type { DemoState, Expense, View } from './lib/types'
+import type { ChatMessage, DemoState, Expense, TripGroup, TripPoll, View } from './lib/types'
 
 const viewTitles: Record<View, { eyebrow: string; title: string; description: string }> = {
-  overview: { eyebrow: 'Lake District Reset', title: 'Everything is nearly ready.', description: 'One commitment left, then Pilot can book the cabin for everyone.' },
+  chat: { eyebrow: 'Trip room', title: 'Plan it in the conversation.', description: 'Discuss, decide and let Pilot keep the shared plan honest.' },
   plan: { eyebrow: 'Plan v3 · locked', title: 'Three days, agreed together.', description: 'A slower Lake District weekend with enough room to breathe.' },
   checkout: { eyebrow: 'Group checkout · GC-2408', title: 'One cabin. Six approvals.', description: 'Every person controls their share. Nothing moves until the whole group is ready.' },
   money: { eyebrow: 'Trip tab', title: 'Every pound, accounted for.', description: 'Add shared expenses, see fair balances and settle with fewer transfers.' },
@@ -25,8 +25,10 @@ const viewTitles: Record<View, { eyebrow: string; title: string; description: st
 
 function App() {
   const [state, setState] = useState<DemoState>(freshSeed)
-  const [view, setView] = useState<View>('overview')
+  const [view, setView] = useState<View>('chat')
   const [persona, setPersona] = useState('maya')
+  const [activeGroupId, setActiveGroupId] = useState('lake-crew')
+  const [createOpen, setCreateOpen] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [toast, setToast] = useState('')
   const [isOnline, setIsOnline] = useState(false)
@@ -38,7 +40,7 @@ function App() {
   const reset = async () => {
     const next = await api.reset().catch(() => freshSeed())
     setState(next)
-    setView('overview')
+    setView('chat')
     showToast('Demo reset to a fresh judging state')
   }
 
@@ -49,30 +51,160 @@ function App() {
 
   const changeView = (next: View) => { setView(next); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   const current = viewTitles[view]
+  const activeGroup = state.groups.find((group) => group.id === activeGroupId) ?? state.groups[0]
+  const selectGroup = (id: string) => { setActiveGroupId(id); setView('chat'); setSidebarOpen(false) }
 
   return (
     <div className="app-shell">
       <div className={sidebarOpen ? 'sidebar-wrap open' : 'sidebar-wrap'}>
-        <Sidebar view={view} onChange={changeView} />
+        <Sidebar view={view} onChange={changeView} groups={state.groups} activeGroup={activeGroup.id} onGroup={selectGroup} onCreate={() => setCreateOpen(true)} />
         <button className="sidebar-scrim" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />
       </div>
       <main className="main-shell">
-        <Topbar members={state.members} persona={persona} onPersona={setPersona} onReset={reset} onMenu={() => setSidebarOpen(true)} />
-        <div className="page">
-          <div className="page-heading">
+        <Topbar members={state.members} persona={persona} onPersona={setPersona} onReset={reset} onMenu={() => setSidebarOpen(true)} groupName={activeGroup.name} />
+        <div className={view === 'chat' ? 'page chat-page' : 'page'}>
+          {view !== 'chat' && <div className="page-heading">
             <div><p className="eyebrow">{current.eyebrow}</p><h1>{current.title}</h1><p>{current.description}</p></div>
             <div className="mode-pill"><span className={isOnline ? 'live-dot' : 'demo-dot'} />{isOnline ? state.mode.replace('-', ' ') : 'local demo mode'}</div>
-          </div>
-          {view === 'overview' && <Overview state={state} onView={changeView} />}
+          </div>}
+          {view === 'chat' && <ChatRoom state={state} setState={setState} group={activeGroup} persona={persona} onPlan={() => changeView('plan')} showToast={showToast} />}
           {view === 'plan' && <Plan state={state} setState={setState} showToast={showToast} />}
           {view === 'checkout' && <Checkout state={state} setState={setState} persona={persona} setPersona={setPersona} showToast={showToast} />}
           {view === 'money' && <Money state={state} setState={setState} persona={persona} showToast={showToast} />}
           {view === 'activity' && <Activity state={state} />}
         </div>
       </main>
+      {createOpen && <CreateGroupModal state={state} setState={setState} persona={persona} onClose={() => setCreateOpen(false)} onCreated={(id) => { setActiveGroupId(id); setView('chat'); setCreateOpen(false); showToast('New trip room created') }} />}
       {toast && <div className="toast"><CheckCircle2 size={18} />{toast}</div>}
     </div>
   )
+}
+
+function localPilotMessage(group: TripGroup, text: string): { message: ChatMessage; poll?: TripPoll } {
+  const command = text.toLowerCase()
+  const id = `pilot-${Date.now()}`
+  if (/summari[sz]e|summary/.test(command)) return { message: { id, author: 'pilot', kind: 'summary', time: 'now', text: 'You have agreed on Fell House, Catbells and keeping a slower Sunday. The unresolved decision is when to fit kayaking without rushing.', meta: { decisions: ['Fell House cabin', 'Catbells on Saturday', 'A slower Sunday'], open: 'Kayak timing' } } }
+  if (/feasib|possible|check/.test(command)) return { message: { id, author: 'pilot', kind: 'warning', time: 'now', text: 'The Saturday sequence is not feasible: the hike ends around 14:00, kayak check-in closes at 14:30, and the transfer takes about 28 minutes. Move kayaking to Sunday or shorten the hike.' } }
+  if (/suggest|idea|recommend/.test(command)) return { message: { id, author: 'pilot', kind: 'suggestion', time: 'now', text: 'Try a Sunday 10:00 kayak slot, then leave the afternoon open for Castlerigg. It keeps one relaxed morning and removes 42 minutes of Saturday travel.' } }
+  const poll: TripPoll = { id: `poll-${Date.now()}`, question: 'Which direction should I use for the plan?', status: 'open', created_by: 'pilot', options: [
+    { id: 'relaxed', label: 'Keep it relaxed', votes: [] }, { id: 'active', label: 'Fit in more activities', votes: [] }, { id: 'budget', label: 'Prioritise lower cost', votes: [] },
+  ] }
+  return { message: { id, author: 'pilot', kind: 'poll', time: 'now', text: 'I’m not confident which trade-off the group prefers, so I opened a poll before changing the plan.', poll_id: poll.id }, poll }
+}
+
+function ChatRoom({ state, setState, group, persona, onPlan, showToast }: { state: DemoState; setState: (state: DemoState) => void; group: TripGroup; persona: string; onPlan: () => void; showToast: (message: string) => void }) {
+  const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const members = group.member_ids.map((id) => state.members.find((member) => member.id === id)).filter(Boolean) as DemoState['members']
+  const groupInitials = group.name.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase()
+  const member = (id: string) => state.members.find((row) => row.id === id)
+  const updateGroup = (nextGroup: TripGroup) => setState({ ...state, groups: state.groups.map((row) => row.id === nextGroup.id ? nextGroup : row) })
+
+  const send = async (override?: string) => {
+    const text = (override ?? draft).trim()
+    if (!text || sending) return
+    setDraft(''); setSending(true)
+    const optimistic = structuredClone(group)
+    optimistic.messages.push({ id: `m-${Date.now()}`, author: persona, kind: 'text', time: 'now', text })
+    updateGroup(optimistic)
+    const remote = await api.message(group.id, persona, text).catch(() => null)
+    if (remote) updateGroup(remote.group)
+    else if (text.toLowerCase().includes('@pilot')) {
+      const result = localPilotMessage(optimistic, text)
+      optimistic.messages.push(result.message)
+      if (result.poll) optimistic.polls.push(result.poll)
+      updateGroup(optimistic)
+    }
+    setSending(false)
+  }
+
+  const vote = async (poll: TripPoll, optionId: string) => {
+    const remote = await api.vote(group.id, poll.id, persona, optionId).catch(() => null)
+    const next = structuredClone(group)
+    const localPoll = next.polls.find((row) => row.id === poll.id)!
+    if (remote) Object.assign(localPoll, remote)
+    else {
+      localPoll.options.forEach((option) => { option.votes = option.votes.filter((id) => id !== persona) })
+      localPoll.options.find((option) => option.id === optionId)!.votes.push(persona)
+      const count = localPoll.options.reduce((sum, option) => sum + option.votes.length, 0)
+      if (count >= Math.max(2, Math.floor(group.member_ids.length / 2) + 1)) {
+        const winner = [...localPoll.options].sort((a, b) => b.votes.length - a.votes.length)[0]
+        localPoll.status = 'decided'; localPoll.winner_id = winner.id
+      }
+    }
+    const updatedState = { ...state, groups: state.groups.map((row) => row.id === next.id ? next : row) }
+    if (localPoll.status === 'decided' && localPoll.id === 'poll-kayak' && localPoll.winner_id === 'sun') {
+      const updatedPlan = state.plan.map((item) => item.id === 'kayak' ? { ...item, day: 3, time: '10:00', detail: '2 hrs · moved by group vote' } : item)
+      if (!next.messages.some((message) => message.id === 'vote-applied')) next.messages.push({ id: 'vote-applied', author: 'pilot', kind: 'suggestion', time: 'now', text: 'Vote decided. I moved kayaking to Sunday at 10:00 and re-checked the route. The plan is feasible with a 45-minute buffer.' })
+      setState({ ...updatedState, plan: updatedPlan, groups: updatedState.groups.map((row) => row.id === next.id ? next : row) })
+      showToast('Group vote applied to the shared plan')
+    } else setState(updatedState)
+  }
+
+  const command = (text: string) => { setDraft(text); window.setTimeout(() => send(text), 0) }
+
+  return <div className="room-shell">
+    <section className="conversation-card">
+      <header className="room-header">
+        <div className="room-title-mark">{groupInitials}</div>
+        <div><p className="eyebrow">{group.destination} · {group.dates}</p><h1>{group.name}</h1><span><i /> {members.length} friends planning now</span></div>
+        <div className="room-members">{members.slice(0, 5).map((row) => <Avatar member={row} small key={row.id} />)}{members.length > 5 && <b>+{members.length - 5}</b>}</div>
+      </header>
+      <div className="room-context-strip"><span><MessageCircleMore size={14} /> Discussion</span><button onClick={onPlan}><CalendarDays size={14} /> Shared plan · v{state.trip.version}</button><button><Users size={14} /> {members.length} members</button></div>
+      <div className="message-stream">
+        <div className="date-divider"><span>Today · planning the shape of the trip</span></div>
+        {group.messages.map((message) => {
+          const author = member(message.author)
+          if (message.author === 'pilot') return <article key={message.id} className={`pilot-message pilot-${message.kind}`}>
+            <div className="pilot-identity"><span><WandSparkles size={15} /></span><strong>TripPilot</strong><small>called by the group · {message.time}</small></div>
+            <p>{message.text}</p>
+            {message.kind === 'summary' && message.meta && <div className="decision-summary"><div><CheckCheck size={15} /><span><strong>Decided</strong>{message.meta.decisions?.join(' · ')}</span></div><div><Vote size={15} /><span><strong>Still open</strong>{message.meta.open}</span></div></div>}
+            {message.kind === 'warning' && <div className="warning-foot"><AlertTriangle size={14} /> Feasibility check · live travel times</div>}
+            {message.kind === 'suggestion' && <button className="apply-suggestion"><Check size={14} /> Add to shared plan</button>}
+          </article>
+          return <article className={message.author === persona ? 'chat-message mine' : 'chat-message'} key={message.id}>
+            {author && <Avatar member={author} small />}
+            <div><div className="message-meta"><strong>{author?.name ?? message.author}</strong><time>{message.time}</time></div><p>{message.text}</p></div>
+          </article>
+        })}
+        {group.polls.map((poll) => <PollCard key={poll.id} poll={poll} members={state.members} persona={persona} onVote={(option) => vote(poll, option)} />)}
+        {group.messages.length === 0 && <div className="empty-room"><span><MessageCircleMore size={24} /></span><h2>Start with the rough idea.</h2><p>Dates, a destination, a budget—or just “somewhere warm.” The plan can grow from the conversation.</p></div>}
+      </div>
+      <div className="pilot-shortcuts"><span><AtSign size={13} /> Call Pilot</span><button onClick={() => command('@pilot summarise what we have decided')}>Summarise</button><button onClick={() => command('@pilot check if our current plan is feasible')}>Check feasibility</button><button onClick={() => command('@pilot suggest the best next step')}>Suggest next</button></div>
+      <div className="composer"><button aria-label="Attach"><Paperclip size={18} /></button><textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send() } }} placeholder={`Message ${group.name} — type @pilot to call the agent`} /><button className="send-button" onClick={() => send()} disabled={!draft.trim() || sending}><Send size={17} /></button></div>
+      <p className="composer-note">Pilot only joins when called. Every plan change stays visible to the group.</p>
+    </section>
+    <aside className="live-plan-rail">
+      <div className="live-plan-head"><div><p className="section-label">Living itinerary</p><h2>The plan so far</h2></div><button onClick={onPlan}>Open <ArrowRight size={14} /></button></div>
+      <div className="plan-health"><span><ShieldCheck size={15} /> Feasibility</span><strong>1 issue</strong></div>
+      <div className="rail-days">{[1,2,3].map((day) => <section key={day}><div className="rail-day-head"><span>0{day}</span><strong>{day === 1 ? 'Friday' : day === 2 ? 'Saturday' : 'Sunday'}</strong><button><Plus size={13} /></button></div>{state.plan.filter((item) => item.day === day).map((item) => <article key={item.id}><GripVertical size={13} /><time>{item.time}</time><div><strong>{item.title}</strong><small>{item.detail}</small></div>{item.id === 'kayak' && item.day === 2 && <AlertTriangle size={14} className="rail-warning" />}</article>)}</section>)}</div>
+      <div className="plan-budget-row"><span><CircleDollarSign size={15} /> Estimated per person</span><strong>{pounds(state.trip.budget_per_person, true)}</strong></div>
+      <button className="lock-plan-button" onClick={onPlan}><LockKeyhole size={14} /> Review and lock plan</button>
+    </aside>
+  </div>
+}
+
+function PollCard({ poll, members, persona, onVote }: { poll: TripPoll; members: DemoState['members']; persona: string; onVote: (optionId: string) => void }) {
+  const total = poll.options.reduce((sum, option) => sum + option.votes.length, 0)
+  return <article className={poll.status === 'decided' ? 'poll-card decided' : 'poll-card'}>
+    <div className="poll-kicker"><Vote size={15} /><span>Group decision</span><small>{poll.status === 'decided' ? 'Decided' : `${total} voted`}</small></div>
+    <h3>{poll.question}</h3>
+    <div className="poll-options">{poll.options.map((option) => { const selected = option.votes.includes(persona); const percent = total ? Math.round(option.votes.length / total * 100) : 0; return <button key={option.id} onClick={() => onVote(option.id)} disabled={poll.status === 'decided'} className={selected || poll.winner_id === option.id ? 'selected' : ''}><span className="poll-radio">{selected || poll.winner_id === option.id ? <Check size={12} /> : ''}</span><strong>{option.label}</strong><i style={{ width: `${percent}%` }} /><b>{option.votes.length}</b></button> })}</div>
+    <div className="poll-voters">{members.filter((member) => poll.options.some((option) => option.votes.includes(member.id))).map((member) => <Avatar member={member} small key={member.id} />)}<span>{poll.status === 'decided' ? 'Plan updated from the winning option' : `${Math.max(0, members.length - total)} still to vote`}</span></div>
+  </article>
+}
+
+function CreateGroupModal({ state, setState, persona, onClose, onCreated }: { state: DemoState; setState: (state: DemoState) => void; persona: string; onClose: () => void; onCreated: (id: string) => void }) {
+  const [name, setName] = useState('')
+  const [destination, setDestination] = useState('')
+  const [dates, setDates] = useState('')
+  const create = async () => {
+    if (!name.trim() || !destination.trim() || !dates.trim()) return
+    const remote = await api.createGroup({ name, destination, dates, created_by: persona }).catch(() => null)
+    const group: TripGroup = remote ?? { id: `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`, name, destination, dates, member_ids: [persona], unread: 0, messages: [{ id: 'welcome', author: 'pilot', kind: 'summary', time: 'now', text: 'Your trip room is ready. Add the rough plan or call @pilot when you want suggestions, a summary, or a feasibility check.' }], polls: [] }
+    setState({ ...state, groups: [...state.groups, group] }); onCreated(group.id)
+  }
+  return <div className="modal-backdrop"><div className="modal create-group-modal"><button className="modal-close" onClick={onClose}><X size={18} /></button><span className="modal-icon"><MessageCircleMore size={22} /></span><p className="eyebrow">New trip room</p><h2>Who are we planning with?</h2><p>Start with a name and a rough idea. Everything else can emerge from the chat.</p><label>Group name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Summer escape crew" /></label><label>Destination or idea<input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="e.g. Somewhere warm" /></label><label>Dates or rough window<input value={dates} onChange={(event) => setDates(event.target.value)} placeholder="e.g. First weekend in June" /></label><button className="primary-button full" onClick={create} disabled={!name || !destination || !dates}>Create trip room <ArrowRight size={15} /></button></div></div>
 }
 
 function Overview({ state, onView }: { state: DemoState; onView: (view: View) => void }) {

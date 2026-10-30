@@ -42,6 +42,23 @@ class CoverRequest(BaseModel):
     amount_cents: int = Field(gt=0, le=100_000)
 
 
+class GroupRequest(BaseModel):
+    name: str = Field(min_length=2, max_length=60)
+    destination: str = Field(min_length=2, max_length=80)
+    dates: str = Field(min_length=2, max_length=60)
+    created_by: str = "maya"
+
+
+class MessageRequest(BaseModel):
+    author: str
+    text: str = Field(min_length=1, max_length=600)
+
+
+class VoteRequest(BaseModel):
+    member_id: str
+    option_id: str
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "mode": "paypal-sandbox" if os.getenv("PAYPAL_CLIENT_ID") else "simulated-sandbox"}
@@ -128,6 +145,90 @@ def add_expense(payload: ExpenseRequest) -> dict:
     return get_demo()
 
 
+def _group(group_id: str) -> dict:
+    group = next((group for group in store.state["groups"] if group["id"] == group_id), None)
+    if not group:
+        raise HTTPException(404, "Group not found")
+    return group
+
+
+@app.post("/api/groups")
+def create_group(payload: GroupRequest) -> dict:
+    group_id = "-".join(payload.name.lower().split())[:40]
+    if any(group["id"] == group_id for group in store.state["groups"]):
+        group_id = f"{group_id}-{len(store.state['groups']) + 1}"
+    group = {
+        "id": group_id,
+        "name": payload.name,
+        "destination": payload.destination,
+        "dates": payload.dates,
+        "member_ids": [payload.created_by],
+        "unread": 0,
+        "messages": [{"id": "welcome", "author": "pilot", "kind": "summary", "time": "now", "text": "Your trip room is ready. Add the rough plan or call @pilot when you want suggestions, a summary, or a feasibility check."}],
+        "polls": [],
+    }
+    store.state["groups"].append(group)
+    return deepcopy(group)
+
+
+def _pilot_reply(group: dict, text: str) -> dict:
+    command = text.lower().replace("@pilot", "").strip()
+    message_id = f"pilot-{len(group['messages']) + 1}"
+    if any(word in command for word in ["summarise", "summarize", "summary"]):
+        return {"id": message_id, "author": "pilot", "kind": "summary", "time": "now", "text": "You have agreed on Fell House, Catbells and keeping a slower Sunday. The unresolved decision is when to fit kayaking without rushing.", "meta": {"decisions": ["Fell House cabin", "Catbells on Saturday", "A slower Sunday"], "open": "Kayak timing"}}
+    if any(word in command for word in ["feasible", "feasibility", "possible", "check"]):
+        return {"id": message_id, "author": "pilot", "kind": "warning", "time": "now", "text": "The Saturday sequence is not feasible: the hike ends around 14:00, the kayak check-in closes at 14:30, and the transfer takes about 28 minutes. Move kayaking to Sunday or shorten the hike."}
+    if any(word in command for word in ["suggest", "idea", "recommend"]):
+        return {"id": message_id, "author": "pilot", "kind": "suggestion", "time": "now", "text": "Try a Sunday 10:00 kayak slot, then leave the afternoon open for Castlerigg. It keeps one relaxed morning and reduces Saturday travel by 42 minutes."}
+    poll = {"id": f"poll-{len(group['polls']) + 1}", "question": "Which direction should I use for the plan?", "status": "open", "created_by": "pilot", "options": [
+        {"id": "relaxed", "label": "Keep it relaxed", "votes": []},
+        {"id": "active", "label": "Fit in more activities", "votes": []},
+        {"id": "budget", "label": "Prioritise lower cost", "votes": []},
+    ]}
+    group["polls"].append(poll)
+    return {"id": message_id, "author": "pilot", "kind": "poll", "time": "now", "text": "I’m not confident which trade-off the group prefers, so I opened a poll before changing the plan.", "poll_id": poll["id"]}
+
+
+@app.post("/api/groups/{group_id}/messages")
+def post_message(group_id: str, payload: MessageRequest) -> dict:
+    group = _group(group_id)
+    if payload.author != "pilot" and payload.author not in group["member_ids"]:
+        raise HTTPException(403, "Author is not a group member")
+    message = {"id": f"m{len(group['messages']) + 1}", "author": payload.author, "kind": "text", "time": "now", "text": payload.text}
+    group["messages"].append(message)
+    reply = None
+    if "@pilot" in payload.text.lower():
+        reply = _pilot_reply(group, payload.text)
+        group["messages"].append(reply)
+    return {"message": deepcopy(message), "reply": deepcopy(reply), "group": deepcopy(group)}
+
+
+@app.post("/api/groups/{group_id}/polls/{poll_id}/vote")
+def vote(group_id: str, poll_id: str, payload: VoteRequest) -> dict:
+    group = _group(group_id)
+    poll = next((poll for poll in group["polls"] if poll["id"] == poll_id), None)
+    if not poll:
+        raise HTTPException(404, "Poll not found")
+    for option in poll["options"]:
+        option["votes"] = [member for member in option["votes"] if member != payload.member_id]
+    option = next((option for option in poll["options"] if option["id"] == payload.option_id), None)
+    if not option:
+        raise HTTPException(404, "Poll option not found")
+    option["votes"].append(payload.member_id)
+    total_votes = sum(len(option["votes"]) for option in poll["options"])
+    if total_votes >= max(2, len(group["member_ids"]) // 2 + 1):
+        winner = max(poll["options"], key=lambda row: len(row["votes"]))
+        poll["status"] = "decided"
+        poll["winner_id"] = winner["id"]
+        if poll["id"] == "poll-kayak" and winner["id"] == "sun":
+            kayak = next((item for item in store.state["plan"] if item["id"] == "kayak"), None)
+            if kayak:
+                kayak.update({"day": 3, "time": "10:00", "detail": "2 hrs · moved by group vote"})
+            if not any(message["id"] == "vote-applied" for message in group["messages"]):
+                group["messages"].append({"id": "vote-applied", "author": "pilot", "kind": "suggestion", "time": "now", "text": "Vote decided. I moved kayaking to Sunday at 10:00 and re-checked the route. The plan is feasible with a 45-minute buffer."})
+    return deepcopy(poll)
+
+
 def _paypal_token() -> str:
     client_id = os.getenv("PAYPAL_CLIENT_ID")
     secret = os.getenv("PAYPAL_CLIENT_SECRET")
@@ -165,4 +266,3 @@ def create_paypal_order() -> dict:
     )
     with request.urlopen(req, timeout=12) as response:
         return json.loads(response.read())
-
