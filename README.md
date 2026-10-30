@@ -14,7 +14,8 @@ The repository includes a polished React judging experience, a FastAPI service, 
 - **Agent-created polls** when a request is ambiguous, with winning decisions applied back to the itinerary
 - **Typed conversation events** for human messages, summaries, suggestions, warnings and group decisions
 - **Plan versions** created from plain-language change requests, with a visible per-person cost delta and explicit accept/reject controls
-- **Group Checkout** with individual commitment caps, deadline, progress, simulated friends and final booking transition
+- **Activity payments workspace** separating individual vendor checkouts from group-funded bookings
+- **Admin-gated group checkout** that unlocks only after every participant share is received, enforced by the API
 - **Cover a friend** as a private, confirmed agreement rather than surprise debt
 - **Trip tab** for shared expenses, exact whole-penny splits and compact settle-up transfers
 - **Auditable agent activity** showing price checks, approvals, commitments, bookings and expense changes
@@ -93,11 +94,11 @@ The tests cover penny-preserving splits, zero-sum balances, settlement transfers
 
 ## Demo flow for judges
 
-1. Open **Overview** and inspect the trip, cost and one remaining commitment.
-2. Open **Plan**, ask Pilot to make Sunday slower, inspect the cost delta and accept the version.
-3. Open **Group checkout**, switch to Leo, and commit the final share—or use **I need help paying** to demo a private cover agreement.
-4. Watch the group reach full commitment and the cabin become booked.
-5. Open **Trip tab**, add an expense and inspect the recomputed settlement plan.
+1. Open **Trip room**, review the group discussion and ask Pilot to check feasibility.
+2. Open **Plan**, inspect the shared itinerary and its costed version.
+3. Open **Payments**, compare the individual flight with the group-funded cabin and kayak session.
+4. Open the kayak payment as Maya to reach the admin-only vendor checkout; switch to Alex to verify that action is unavailable.
+5. Open **Trip tab**, add an expense and inspect the recomputed charts and settlement plan.
 6. Open **Agent activity** to see every action and guardrail.
 7. Use **Reset demo** to restore the starting state.
 
@@ -127,6 +128,9 @@ Group collaboration is separated into explicit group, message and poll resources
 | `POST /api/cover` | Create a private cover agreement |
 | `POST /api/expenses` | Add and deterministically split an expense |
 | `POST /api/paypal/orders` | Create a PayPal sandbox authorisation Order |
+| `POST /api/payments/{id}/contribute` | Send one member's share to a group-funded activity |
+| `POST /api/payments/{id}/complete-individual` | Mark only that member's direct booking complete |
+| `POST /api/payments/{id}/pay-vendor` | Let the group admin pay a fully funded vendor booking |
 | `POST /api/groups` | Create a new trip room |
 | `POST /api/groups/{id}/messages` | Post a member message and optionally call Pilot |
 | `POST /api/groups/{id}/polls/{poll_id}/vote` | Record a vote and apply a decided option |

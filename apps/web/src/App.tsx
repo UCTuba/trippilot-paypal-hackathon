@@ -8,6 +8,7 @@ import { ActivityList } from './components/ActivityList'
 import { Avatar } from './components/Avatar'
 import { CheckoutCard } from './components/CheckoutCard'
 import { Itinerary } from './components/Itinerary'
+import { Payments } from './components/Payments'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { MemberBalances, SpendByCategory } from './components/TripCharts'
@@ -19,7 +20,7 @@ import type { ChatMessage, DemoState, Expense, TripGroup, TripPoll, View } from 
 const viewTitles: Record<View, { eyebrow: string; title: string; description: string }> = {
   chat: { eyebrow: 'Trip room', title: 'Plan it in the conversation.', description: 'Discuss, decide and let Pilot keep the shared plan honest.' },
   plan: { eyebrow: 'Plan v3 · locked', title: 'Three days, agreed together.', description: 'A slower Lake District weekend with enough room to breathe.' },
-  checkout: { eyebrow: 'Group checkout · GC-2408', title: 'One cabin. Six approvals.', description: 'Every person controls their share. Nothing moves until the whole group is ready.' },
+  checkout: { eyebrow: 'Payments', title: 'Personal when it should be. Shared when it must be.', description: 'Pay individual bookings directly, collect group shares, then let the admin complete the activity.' },
   money: { eyebrow: 'Trip tab', title: 'Every pound, accounted for.', description: 'Add shared expenses, see fair balances and settle with fewer transfers.' },
   activity: { eyebrow: 'Agent activity', title: 'Nothing happens in the dark.', description: 'Every proposal, approval, price check and payment step is recorded here.' },
 }
@@ -70,7 +71,7 @@ function App() {
           </div>}
           {view === 'chat' && <ChatRoom state={state} setState={setState} group={activeGroup} persona={persona} onPlan={() => changeView('plan')} showToast={showToast} />}
           {view === 'plan' && <Plan state={state} setState={setState} showToast={showToast} />}
-          {view === 'checkout' && <Checkout state={state} setState={setState} persona={persona} setPersona={setPersona} showToast={showToast} />}
+          {view === 'checkout' && <Payments state={state} setState={setState} persona={persona} showToast={showToast} />}
           {view === 'money' && <Money state={state} setState={setState} persona={persona} showToast={showToast} />}
           {view === 'activity' && <Activity state={state} />}
         </div>

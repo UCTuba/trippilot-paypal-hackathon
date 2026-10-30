@@ -37,6 +37,22 @@ export type AgentEvent = {
 
 export type Transfer = { payer: string; recipient: string; cents: number }
 
+export type PaymentItem = {
+  id: string
+  plan_id: string
+  title: string
+  vendor: string
+  kind: 'group' | 'individual'
+  description: string
+  total_cents: number
+  share_cents: number
+  participant_ids: string[]
+  paid_member_ids: string[]
+  admin_id: string
+  deadline: string
+  status: 'collecting' | 'ready' | 'paid'
+}
+
 export type PollOption = { id: string; label: string; votes: string[] }
 
 export type TripPoll = {
@@ -93,6 +109,7 @@ export type DemoState = {
     state: string
   }
   expenses: Expense[]
+  payments: PaymentItem[]
   events: AgentEvent[]
   balances: Record<string, number>
   settlements: Transfer[]

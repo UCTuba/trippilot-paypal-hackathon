@@ -16,7 +16,7 @@ SEED = {
         "version": 3,
     },
     "members": [
-        {"id": "maya", "name": "Maya", "initials": "MK", "role": "Planner", "color": "coral", "committed": True},
+        {"id": "maya", "name": "Maya", "initials": "MK", "role": "Group admin", "color": "coral", "committed": True},
         {"id": "alex", "name": "Alex", "initials": "AR", "role": "Planner", "color": "blue", "committed": True},
         {"id": "jordan", "name": "Jordan", "initials": "JT", "role": "Member", "color": "mint", "committed": True},
         {"id": "priya", "name": "Priya", "initials": "PS", "role": "Member", "color": "gold", "committed": True},
@@ -41,6 +41,12 @@ SEED = {
         "deadline": "Today · 18:00",
         "state": "open",
     },
+    "payments": [
+        {"id": "pay-stay", "plan_id": "stay", "title": "Fell House · 3 nights", "vendor": "Fell House Stays", "kind": "group", "description": "The whole cabin is paid as one booking after every traveller has sent their share.", "total_cents": 114000, "share_cents": 19000, "participant_ids": ["maya", "alex", "jordan", "priya", "sam", "leo"], "paid_member_ids": ["maya", "alex", "jordan", "priya", "sam"], "admin_id": "maya", "deadline": "Today · 18:00", "status": "collecting"},
+        {"id": "pay-flight", "plan_id": "flight", "title": "Manchester → Lisbon", "vendor": "TAP Air Portugal", "kind": "individual", "description": "Each traveller books their own seat directly. Price and luggage choices can differ by person.", "total_cents": 12480, "share_cents": 12480, "participant_ids": ["maya", "alex", "priya", "sam"], "paid_member_ids": ["alex"], "admin_id": "maya", "deadline": "12 November · 20:00", "status": "collecting"},
+        {"id": "pay-kayak", "plan_id": "kayak", "title": "Derwentwater kayak session", "vendor": "Keswick Watersports", "kind": "group", "description": "All six shares are collected. The group admin can now complete the activity booking.", "total_cents": 21600, "share_cents": 3600, "participant_ids": ["maya", "alex", "jordan", "priya", "sam", "leo"], "paid_member_ids": ["maya", "alex", "jordan", "priya", "sam", "leo"], "admin_id": "maya", "deadline": "Ready now", "status": "ready"},
+        {"id": "pay-minibus", "plan_id": "castlerigg", "title": "Castlerigg sunset minibus", "vendor": "Lakes Minibus Co.", "kind": "group", "description": "Private return transfer for the group.", "total_cents": 12000, "share_cents": 2000, "participant_ids": ["maya", "alex", "jordan", "priya", "sam", "leo"], "paid_member_ids": ["maya", "alex", "jordan", "priya", "sam", "leo"], "admin_id": "maya", "deadline": "Paid 28 October", "status": "paid"},
+    ],
     "expenses": [
         {"id": "e1", "title": "Groceries", "payer": "maya", "amount_cents": 8674, "participants": ["maya", "alex", "jordan", "priya", "sam", "leo"], "category": "Food"},
         {"id": "e2", "title": "Minibus deposit", "payer": "alex", "amount_cents": 12000, "participants": ["maya", "alex", "jordan", "priya", "sam", "leo"], "category": "Transport"},

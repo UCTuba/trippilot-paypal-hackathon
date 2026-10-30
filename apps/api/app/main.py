@@ -59,6 +59,10 @@ class VoteRequest(BaseModel):
     option_id: str
 
 
+class PaymentActionRequest(BaseModel):
+    member_id: str
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "mode": "paypal-sandbox" if os.getenv("PAYPAL_CLIENT_ID") else "simulated-sandbox"}
@@ -142,6 +146,64 @@ def add_expense(payload: ExpenseRequest) -> dict:
     expense = {"id": f"e{len(store.state['expenses']) + 1}", **payload.model_dump()}
     store.state["expenses"].append(expense)
     store.add_event("expense", f"{payload.title} added", f"£{payload.amount_cents / 100:.2f} · split {len(shares)} ways")
+    return get_demo()
+
+
+def _payment(payment_id: str) -> dict:
+    payment = next((payment for payment in store.state["payments"] if payment["id"] == payment_id), None)
+    if not payment:
+        raise HTTPException(404, "Payment not found")
+    return payment
+
+
+@app.post("/api/payments/{payment_id}/contribute")
+def contribute_payment(payment_id: str, payload: PaymentActionRequest) -> dict:
+    payment = _payment(payment_id)
+    if payment["kind"] != "group":
+        raise HTTPException(409, "Individual bookings must be paid directly")
+    if payload.member_id not in payment["participant_ids"]:
+        raise HTTPException(403, "Member is not part of this payment")
+    if payment["status"] == "paid":
+        raise HTTPException(409, "Payment is already complete")
+    if payload.member_id not in payment["paid_member_ids"]:
+        payment["paid_member_ids"].append(payload.member_id)
+        member = next(member for member in store.state["members"] if member["id"] == payload.member_id)
+        store.add_event("payment", f"{member['name']} sent a group share", f"{payment['title']} · £{payment['share_cents'] / 100:.2f}")
+    if set(payment["paid_member_ids"]) == set(payment["participant_ids"]):
+        payment["status"] = "ready"
+    return get_demo()
+
+
+@app.post("/api/payments/{payment_id}/complete-individual")
+def complete_individual_payment(payment_id: str, payload: PaymentActionRequest) -> dict:
+    payment = _payment(payment_id)
+    if payment["kind"] != "individual":
+        raise HTTPException(409, "Group bookings collect shares first")
+    if payload.member_id not in payment["participant_ids"]:
+        raise HTTPException(403, "Member is not part of this payment")
+    if payload.member_id not in payment["paid_member_ids"]:
+        payment["paid_member_ids"].append(payload.member_id)
+        member = next(member for member in store.state["members"] if member["id"] == payload.member_id)
+        store.add_event("payment", f"{member['name']} completed an individual booking", payment["title"])
+    if set(payment["paid_member_ids"]) == set(payment["participant_ids"]):
+        payment["status"] = "paid"
+    return get_demo()
+
+
+@app.post("/api/payments/{payment_id}/pay-vendor")
+def pay_payment_vendor(payment_id: str, payload: PaymentActionRequest) -> dict:
+    payment = _payment(payment_id)
+    if payment["kind"] != "group":
+        raise HTTPException(409, "Individual bookings are paid by each traveller")
+    if payload.member_id != payment["admin_id"]:
+        raise HTTPException(403, "Only the group admin can pay the vendor")
+    if set(payment["paid_member_ids"]) != set(payment["participant_ids"]):
+        raise HTTPException(409, "All group shares must be received first")
+    payment["status"] = "paid"
+    plan_item = next((item for item in store.state["plan"] if item["id"] == payment["plan_id"]), None)
+    if plan_item:
+        plan_item["booked"] = True
+    store.add_event("booking", f"{payment['title']} paid by group admin", f"{payment['vendor']} · SIMULATED_SUCCESS")
     return get_demo()
 
 

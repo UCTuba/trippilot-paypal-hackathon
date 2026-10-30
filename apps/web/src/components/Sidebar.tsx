@@ -4,7 +4,7 @@ import type { TripGroup, View } from '../lib/types'
 const items: { id: View; label: string; icon: typeof MessageCircleMore; badge?: string }[] = [
   { id: 'chat', label: 'Trip room', icon: MessageCircleMore },
   { id: 'plan', label: 'Plan', icon: CalendarDays, badge: 'v3' },
-  { id: 'checkout', label: 'Group checkout', icon: CreditCard, badge: '5/6' },
+  { id: 'checkout', label: 'Payments', icon: CreditCard, badge: '2 due' },
   { id: 'money', label: 'Trip tab', icon: ReceiptText },
   { id: 'activity', label: 'Agent activity', icon: Activity, badge: '3' },
 ]
