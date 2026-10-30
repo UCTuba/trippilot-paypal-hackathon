@@ -16,20 +16,31 @@ export function Sidebar({ view, onChange, groups, activeGroup, onGroup, onCreate
         <span className="brand-mark"><Route size={21} strokeWidth={2.6} /></span>
         <span>TripPilot</span>
       </button>
-      <nav className="side-nav" aria-label="Trip workspace">
-        <p className="nav-label">Trip workspace</p>
-        {items.map(({ id, label, icon: Icon, badge }) => (
-          <button key={id} className={view === id ? 'nav-item active' : 'nav-item'} onClick={() => onChange(id)}>
-            <Icon size={18} />
-            <span>{label}</span>
-            {badge && <span className="nav-badge">{badge}</span>}
-          </button>
-        ))}
+      <nav className="group-nav" aria-label="Trip groups and workspace">
+        <div className="group-nav-head"><p className="nav-label">Your trip groups</p><button onClick={onCreate} aria-label="Create a trip group"><Plus size={14} /></button></div>
+        <div className="group-tree">
+          {groups.map((group) => {
+            const selected = activeGroup === group.id
+            return <div className={selected ? 'group-tree-item selected' : 'group-tree-item'} key={group.id}>
+              <button className={selected ? 'group-link active' : 'group-link'} onClick={() => onGroup(group.id)} aria-expanded={selected}>
+                <span className="group-glyph">{group.destination === 'Undecided' ? '?' : group.destination.slice(0, 1)}</span>
+                <span><strong>{group.name}</strong><small>{group.destination}</small></span>
+                {group.unread > 0 && <i>{group.unread}</i>}
+              </button>
+              {selected && <div className="group-workspace">
+                <p className="workspace-label">Group workspace</p>
+                {items.map(({ id, label, icon: Icon, badge }) => (
+                  <button key={id} className={view === id ? 'workspace-item active' : 'workspace-item'} onClick={() => onChange(id)}>
+                    <Icon size={15} />
+                    <span>{label}</span>
+                    {badge && <span className="nav-badge">{badge}</span>}
+                  </button>
+                ))}
+              </div>}
+            </div>
+          })}
+        </div>
       </nav>
-      <div className="group-nav">
-        <div className="group-nav-head"><p className="nav-label">Your groups</p><button onClick={onCreate} aria-label="Create a trip group"><Plus size={14} /></button></div>
-        {groups.map((group) => <button key={group.id} className={activeGroup === group.id ? 'group-link active' : 'group-link'} onClick={() => onGroup(group.id)}><span className="group-glyph">{group.destination === 'Undecided' ? '?' : group.destination.slice(0, 1)}</span><span><strong>{group.name}</strong><small>{group.destination}</small></span>{group.unread > 0 && <i>{group.unread}</i>}</button>)}
-      </div>
       <div className="agent-card">
         <div className="agent-orbit"><Sparkles size={17} /></div>
         <div>

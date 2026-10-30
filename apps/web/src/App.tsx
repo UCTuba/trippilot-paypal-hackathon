@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, ArrowRight, AtSign, Bot, CalendarDays, Check, CheckCheck, CheckCircle2, ChevronRight,
   CircleDollarSign, Clock3, GripVertical, Lightbulb, LockKeyhole, MapPin, MessageCircleMore,
-  Paperclip, Plus, ReceiptText, Send, ShieldCheck, Sparkles, Users, Vote, WandSparkles, X,
+  Paperclip, Plus, ReceiptText, RefreshCcw, Send, ShieldCheck, Sparkles, Users, Vote, WandSparkles, X,
 } from 'lucide-react'
 import { ActivityList } from './components/ActivityList'
 import { Avatar } from './components/Avatar'
@@ -10,6 +10,7 @@ import { CheckoutCard } from './components/CheckoutCard'
 import { Itinerary } from './components/Itinerary'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
+import { MemberBalances, SpendByCategory } from './components/TripCharts'
 import { api } from './lib/api'
 import { calculateBalances, calculateSettlements, pounds } from './lib/money'
 import { freshSeed } from './lib/seed'
@@ -186,11 +187,29 @@ function ChatRoom({ state, setState, group, persona, onPlan, showToast }: { stat
 
 function PollCard({ poll, members, persona, onVote }: { poll: TripPoll; members: DemoState['members']; persona: string; onVote: (optionId: string) => void }) {
   const total = poll.options.reduce((sum, option) => sum + option.votes.length, 0)
+  const currentVote = poll.options.find((option) => option.votes.includes(persona))
+  const [changingVote, setChangingVote] = useState(!currentVote)
+  const isClosed = poll.status === 'decided'
+  const choose = (optionId: string) => { onVote(optionId); setChangingVote(false) }
   return <article className={poll.status === 'decided' ? 'poll-card decided' : 'poll-card'}>
     <div className="poll-kicker"><Vote size={15} /><span>Group decision</span><small>{poll.status === 'decided' ? 'Decided' : `${total} voted`}</small></div>
     <h3>{poll.question}</h3>
-    <div className="poll-options">{poll.options.map((option) => { const selected = option.votes.includes(persona); const percent = total ? Math.round(option.votes.length / total * 100) : 0; return <button key={option.id} onClick={() => onVote(option.id)} disabled={poll.status === 'decided'} className={selected || poll.winner_id === option.id ? 'selected' : ''}><span className="poll-radio">{selected || poll.winner_id === option.id ? <Check size={12} /> : ''}</span><strong>{option.label}</strong><i style={{ width: `${percent}%` }} /><b>{option.votes.length}</b></button> })}</div>
-    <div className="poll-voters">{members.filter((member) => poll.options.some((option) => option.votes.includes(member.id))).map((member) => <Avatar member={member} small key={member.id} />)}<span>{poll.status === 'decided' ? 'Plan updated from the winning option' : `${Math.max(0, members.length - total)} still to vote`}</span></div>
+    <div className="poll-options">{poll.options.map((option) => {
+      const selected = option.votes.includes(persona)
+      const percent = total ? Math.round(option.votes.length / total * 100) : 0
+      const voters = members.filter((member) => option.votes.includes(member.id))
+      return <button key={option.id} onClick={() => choose(option.id)} disabled={isClosed || (!!currentVote && !changingVote)} className={selected || poll.winner_id === option.id ? 'selected' : ''} aria-label={`${option.label}, ${option.votes.length} votes${selected ? ', your current vote' : ''}`}>
+        <span className="poll-radio">{selected || poll.winner_id === option.id ? <Check size={12} /> : ''}</span>
+        <span className="poll-option-copy"><strong>{option.label}</strong>{voters.length > 0 && <small>{voters.map((member) => member.name).join(', ')}</small>}</span>
+        <i style={{ width: `${percent}%` }} />
+        <b>{percent}%</b>
+      </button>
+    })}</div>
+    <div className="poll-footer">
+      <div className="poll-voters">{members.filter((member) => poll.options.some((option) => option.votes.includes(member.id))).map((member) => <Avatar member={member} small key={member.id} />)}<span>{isClosed ? 'Plan updated from the winning option' : `${Math.max(0, members.length - total)} still to vote`}</span></div>
+      {!isClosed && currentVote && !changingVote && <button className="change-vote" onClick={() => setChangingVote(true)}><RefreshCcw size={13} /> Change vote</button>}
+      {!isClosed && currentVote && changingVote && <button className="change-vote cancel" onClick={() => setChangingVote(false)}>Keep current</button>}
+    </div>
   </article>
 }
 
@@ -354,6 +373,10 @@ function Money({ state, setState, persona, showToast }: { state: DemoState; setS
       <div><p className="section-label">Group spend</p><strong>{pounds(state.expenses.reduce((s, e) => s + e.amount_cents, 0), true)}</strong><span>across {state.expenses.length} expenses</span></div>
       <div><p className="section-label">Your position</p><strong className={(balances[persona] ?? 0) >= 0 ? 'good' : 'owed'}>{(balances[persona] ?? 0) >= 0 ? 'owed ' : 'you owe '}{pounds(Math.abs(balances[persona] ?? 0), true)}</strong><span>updated just now</span></div>
       <button className="primary-button" onClick={() => setOpen(true)}><Plus size={16} /> Add expense</button>
+    </section>
+    <section className="money-visuals" aria-label="Trip spending charts">
+      <SpendByCategory expenses={state.expenses} />
+      <MemberBalances balances={balances} members={state.members} />
     </section>
     <section className="card panel expense-panel">
       <div className="panel-heading"><div><p className="section-label">Shared expenses</p><h2>The trip tab</h2></div><button className="soft-button"><ReceiptText size={15} /> Scan receipt</button></div>
